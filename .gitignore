@@ -1,0 +1,57 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+music_ai_remaster.spec
+build.ps1
+pyi_hooks/
+
+# PyTorch / CUDA wheels cache
+wheels/
+*.whl
+
+# Virtual environment
+.venv/
+venv/
+env/
+ENV/
+
+# Testing & Cache
+.pytest_cache/
+.coverage
+htmlcov/
+.cache/
+
+# Audio test files & temporary outputs
+*.mp3
+*.wav
+*.flac
+*.ogg
+*.m4a
+output/
+temp/
+nul
+
+# Internal documentation & dev notes (uncomment if you want to keep them local only)
+AGENTS.md
+HANDOFF.md
+PLAN.md
+MASTERING_UPGRADE.md
+CLEANUP_PLAN.md
+
+# OS / Editor artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

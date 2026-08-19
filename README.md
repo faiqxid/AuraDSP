@@ -1,4 +1,4 @@
-# Music AI Remaster
+# AuraDSP
 
 > SOTA AI Music Detection & Remastering Engine — detects AI-generated audio and remasters it to evade streaming platform detection systems.
 
@@ -11,7 +11,7 @@
 
 ### Overview
 
-Music AI Remaster is a Python tool that combines AI detection and a 7-step DSP remaster pipeline to help AI-generated music bypass streaming platform detection enforcers such as SoundOn, DistroKid, and Spotify.
+AuraDSP is a Python tool that combines AI detection and a 7-step DSP remaster pipeline to help AI-generated music bypass streaming platform detection enforcers such as SoundOn, DistroKid, and Spotify.
 
 - **Detection accuracy**: 99.88% (SOTA `lofcz/ai-music-detector` model, 3,585 spectral features)
 - **Tested result**: 100% AI → < 2% AI after remaster
@@ -77,8 +77,8 @@ INPUT: AI-generated .mp3 / .wav
 ### Installation
 
 ```bash
-git clone https://github.com/your-username/music_ai_remaster.git
-cd music_ai_remaster
+git clone https://github.com/your-username/auradsp.git
+cd auradsp
 
 python -m venv .venv
 
@@ -176,7 +176,7 @@ print(f"Bypassed:   {result.bypass_success}")
 ### Project Structure
 
 ```
-music_ai_remaster/
+auradsp/
 ├── models/                     # SOTA detector weights (safetensors)
 ├── src/
 │   ├── app.py                  # Flask web server + SSE batch endpoint
@@ -216,7 +216,7 @@ music_ai_remaster/
 
 ### Tentang Proyek
 
-Music AI Remaster adalah tool Python yang menggabungkan deteksi AI dengan pipeline DSP 7-tahap untuk meremaster musik buatan AI agar lolos dari sistem deteksi platform distribusi musik seperti SoundOn, DistroKid, dan Spotify.
+AuraDSP adalah tool Python yang menggabungkan deteksi AI dengan pipeline DSP 7-tahap untuk meremaster musik buatan AI agar lolos dari sistem deteksi platform distribusi musik seperti SoundOn, DistroKid, dan Spotify.
 
 - **Akurasi deteksi**: 99.88% (model SOTA `lofcz/ai-music-detector`, 3.585 fitur spektral)
 - **Hasil uji**: 100% AI → < 2% AI setelah remaster
@@ -256,8 +256,8 @@ Music AI Remaster adalah tool Python yang menggabungkan deteksi AI dengan pipeli
 ### Instalasi
 
 ```bash
-git clone https://github.com/username-anda/music_ai_remaster.git
-cd music_ai_remaster
+git clone https://github.com/username-anda/auradsp.git
+cd auradsp
 
 python -m venv .venv
 

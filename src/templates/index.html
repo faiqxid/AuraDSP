@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ai music detector + remaster</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --rose:#D4647A;
+      --rose-deep:#C04A62;
+      --lilac:#A285D6;
+      --blue:#88B8F0;
+      --mint:#5FA896;
+      --danger:#B44D5E;
+      --ok:#4E8C72;
+      --warning:#C28A3B;
+      --ink:#2A1B18;
+      --ink-soft:#6C5B52;
+      --muted:#A99A90;
+      --serif:'Instrument Serif', serif;
+      --sans:'DM Sans', sans-serif;
+      --mono:'Space Mono', monospace;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+    body{
+      color:var(--ink);
+      font-family:var(--sans);
+      min-height:100dvh;
+      overflow-x:hidden;
+      position:relative;
+      background:
+        linear-gradient(155deg,
+          #FDEEF2 0%,
+          #F8E4EC 12%,
+          #F2E0F0 25%,
+          #EDE5F6 40%,
+          #E8EAF8 55%,
+          #E0EEF8 68%,
+          #E8F0F0 80%,
+          #F5F0EA 92%,
+          #FBF6F2 100%
+        );
+      padding:0;
+    }
+    /* Layered gradient orbs for depth */
+    body::before{
+      content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+      background:
+        radial-gradient(ellipse 55% 45% at 8% 8%, rgba(255,180,200,0.22), transparent 70%),
+        radial-gradient(ellipse 50% 40% at 85% 15%, rgba(180,140,220,0.16), transparent 65%),
+        radial-gradient(ellipse 45% 35% at 50% 55%, rgba(140,185,240,0.12), transparent 60%),
+        radial-gradient(ellipse 40% 30% at 15% 85%, rgba(255,160,190,0.14), transparent 55%),
+        radial-gradient(ellipse 35% 25% at 90% 80%, rgba(160,200,240,0.12), transparent 50%);
+    }
+    /* Subtle noise texture */
+    body::after{
+      content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opacity:0.35;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      background-size:180px 180px;
+    }
+    ::selection{background:rgba(212,100,122,0.25);color:var(--ink)}
+    ::-webkit-scrollbar{width:7px}
+    ::-webkit-scrollbar-track{background:rgba(232,224,240,0.3)}
+    ::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(212,100,122,0.35),rgba(162,133,214,0.35));border-radius:99px}
+
+    /* ─── Layout Wrapper ─── */
+    .app-wrapper{
+      position:relative;z-index:1;
+      max-width:800px;
+      margin:0 auto;
+      padding:40px 24px 90px;
+      display:flex;flex-direction:column;gap:24px;
+    }
+
+    /* ─── Glass Card Base ─── */
+    .glass{
+      background:rgba(255,255,255,0.60);
+      backdrop-filter:blur(20px) saturate(1.6);
+      -webkit-backdrop-filter:blur(20px) saturate(1.6);
+      border:1px solid rgba(255,255,255,0.75);
+      border-radius:24px;
+      box-shadow:
+        0 8px 32px rgba(180,90,130,0.08),
+        0 2px 8px rgba(120,100,200,0.05),
+        inset 0 1px 0 rgba(255,255,255,0.9);
+    }
+
+    /* ─── Typography ─── */
+    h1{font-family:var(--serif);font-size:clamp(2rem,5vw,3.2rem);line-height:1.1;letter-spacing:-0.01em;color:var(--ink)}
+    h2{font-family:var(--serif);font-size:clamp(1.3rem,3vw,1.85rem);color:var(--ink)}
+    h3{font-family:var(--serif);font-size:clamp(1.02rem,2.2vw,1.3rem);color:var(--ink)}
+    .mono{font-family:var(--mono);font-size:0.76rem;letter-spacing:0.06em;text-transform:uppercase}
+    .small{font-size:0.87rem;color:var(--ink-soft);line-height:1.55}
+    .muted{color:var(--muted)}
+    .italic{font-style:italic}
+    .center-text{text-align:center}
+
+    /* ─── Header Section ─── */
+    .brand-header{
+      text-align:center;
+      padding:40px 24px 32px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0));
+      border-radius:0 0 40px 40px;
+    }
+    .brand-sub{max-width:48ch;margin:12px auto 0}
+
+    .capsule{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:8px 14px;border-radius:999px;margin-bottom:16px;
+      background:rgba(255,255,255,0.70);
+      border:1px solid rgba(212,100,122,0.15);
+      font-family:var(--mono);font-size:0.74rem;letter-spacing:0.06em;text-transform:uppercase;
+    }
+    .capsule .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    .dot-rose{background:linear-gradient(135deg,var(--rose),var(--rose-deep))}
+    .dot-lilac{background:linear-gradient(135deg,var(--lilac),#8B70C0)}
+    .dot-blue{background:linear-gradient(135deg,var(--blue),#6AA0E0)}
+
+    /* ─── Main App Card (Start Here) ─── */
+    .main-app-card{
+      padding:28px;
+      background:rgba(255,255,255,0.72);
+      backdrop-filter:blur(20px) saturate(1.6);
+      border:1px solid rgba(255,255,255,0.80);
+      border-radius:28px;
+      box-shadow:0 12px 40px rgba(180,90,130,0.10), inset 0 1px 0 rgba(255,255,255,1);
+      transition:transform .3s ease;
+    }
+    .main-app-card:hover{transform:translateY(-2px)}
+
+    .section-label{
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      font-family:var(--mono);font-size:0.74rem;letter-spacing:0.06em;text-transform:uppercase;
+      color:var(--rose);margin-bottom:16px;
+    }
+    .section-label::before, .section-label::after{
+      content:"";width:40px;height:2px;border-radius:999px;
+      background:linear-gradient(90deg,transparent, var(--rose), var(--lilac), transparent);
+    }
+
+    /* ─── Mode Pills ─── */
+    .mode-pills{display:flex;gap:8px;justify-content:center;margin-bottom:20px}
+    .pill{
+      padding:10px 16px;border-radius:999px;
+      border:1px solid rgba(212,100,122,0.18);
+      background:rgba(255,255,255,0.65);
+      backdrop-filter:blur(10px);
+      font-family:var(--mono);font-size:0.74rem;letter-spacing:0.06em;text-transform:uppercase;
+      cursor:pointer;transition:all .22s ease;
+    }
+    .pill:hover{transform:translateY(-1px);border-color:rgba(212,100,122,0.30)}
+    .pill.active{
+      background:linear-gradient(135deg,var(--rose),#B86DC8,var(--lilac));
+      color:#fff;border-color:transparent;
+      box-shadow:0 6px 20px rgba(212,100,122,0.25),0 2px 8px rgba(162,133,214,0.15);
+    }
+
+    /* ─── Drop Zone ─── */
+    .drop{
+      display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center;
+      padding:40px 30px;
+      border:1.5px dashed rgba(212,100,122,0.30);
+      border-radius:20px;
+      background:
+        radial-gradient(ellipse 70% 50% at 25% 30%, rgba(255,200,215,0.22), transparent 70%),
+        radial-gradient(ellipse 50% 40% at 75% 70%, rgba(180,160,230,0.14), transparent 60%),
+        rgba(255,255,255,0.45);
+      backdrop-filter:blur(16px) saturate(1.4);
+      cursor:pointer;transition:all .28s ease;
+    }
+    .drop:hover{
+      border-color:var(--rose);
+      transform:translateY(-4px);
+      box-shadow:0 14px 38px rgba(212,100,122,0.12),0 4px 12px rgba(162,133,214,0.08);
+    }
+    .drop .head{display:flex;flex-direction:column;align-items:center;gap:12px}
+    .icon-btn{
+      width:56px;height:56px;border-radius:18px;display:grid;place-items:center;
+      border:1px solid rgba(255,255,255,0.8);
+      transition:transform .22s ease,box-shadow .22s ease;
+    }
+    .icon-btn.accent-rose{
+      background:linear-gradient(135deg,rgba(255,220,230,0.8),rgba(255,190,210,0.5));
+      box-shadow:0 8px 18px rgba(212,100,122,0.15);
+    }
+    .icon-btn.accent-lilac{
+      background:linear-gradient(135deg,rgba(232,220,250,0.8),rgba(210,190,240,0.5));
+      box-shadow:0 8px 18px rgba(162,133,214,0.15);
+    }
+    .drop:hover .icon-btn{transform:scale(1.05) translateY(-2px)}
+    .drop .meta{font-family:var(--mono);font-size:0.74rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)}
+    .drop input[type="file"]{display:none}
+
+    .folder{
+      display:none;flex-direction:column;gap:20px;align-items:stretch;
+      padding:32px 28px;border-radius:20px;
+      border:1.5px dashed rgba(162,133,214,0.28);
+      background:
+        radial-gradient(ellipse 60% 45% at 30% 30%, rgba(232,220,250,0.18), transparent 65%),
+        rgba(255,255,255,0.45);
+      backdrop-filter:blur(16px);
+    }
+    .folder .head{display:flex;align-items:center;gap:14px;text-align:left}
+    .input{
+      width:100%;
+      padding:14px 18px;border-radius:16px;
+      border:1px solid rgba(162,133,214,0.22);
+      background:rgba(255,255,255,0.75);
+      font-family:var(--sans);font-size:0.95rem;color:var(--ink);
+      outline:none;transition:all .22s ease;
+    }
+    .input:focus{border-color:var(--lilac);box-shadow:0 0 0 3px rgba(162,133,214,0.12)}
+    .input::placeholder{color:var(--muted)}
+    .folder-actions{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
+    .folder-actions .sel{flex:0 0 auto;min-width:180px}
+    .folder-actions .btn{flex:1 1 auto;min-width:160px}
+
+    /* ─── Buttons ─── */
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:10px;
+      padding:14px 24px;border-radius:18px;
+      border:1px solid transparent;
+      background:linear-gradient(135deg,var(--rose),#B86DC8,var(--lilac));
+      color:#fff;
+      font-family:var(--mono);font-size:0.8rem;letter-spacing:0.06em;text-transform:uppercase;
+      cursor:pointer;transition:all .20s ease;
+      box-shadow:0 8px 22px rgba(212,100,122,0.18),0 2px 6px rgba(162,133,214,0.10);
+    }
+    .btn:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(212,100,122,0.22),0 4px 10px rgba(162,133,214,0.12)}
+    .btn:active{transform:translateY(0)}
+    .btn.secondary{
+      background:rgba(255,255,255,0.70);color:var(--ink);
+      border:1px solid rgba(212,100,122,0.15);
+      box-shadow:0 4px 14px rgba(180,90,130,0.06);
+    }
+    .btn.hidden{display:none}
+
+    .sel{
+      padding:14px 18px;border-radius:18px;
+      border:1px solid rgba(162,133,214,0.18);
+      background:rgba(255,255,255,0.70);
+      font-family:var(--mono);font-size:0.78rem;letter-spacing:0.04em;text-transform:uppercase;
+      color:var(--ink);outline:none;cursor:pointer;
+      text-align:center;
+    }
+
+    /* ─── Loader ─── */
+    .loader{display:none;flex-direction:column;gap:16px;align-items:center;padding:30px 0}
+    .loader .bar{
+      height:8px;border-radius:999px;width:100%;max-width:400px;
+      background:rgba(232,224,240,0.4);overflow:hidden;
+    }
+    .loader .bar .fill{
+      width:32%;height:100%;border-radius:999px;
+      background:linear-gradient(90deg,var(--rose),#B86DC8,var(--lilac),var(--blue));
+      animation:loaderSlide 1.5s ease-in-out infinite;
+    }
+    @keyframes loaderSlide{0%{transform:translateX(-130%)}100%{transform:translateX(430%)}}
+
+    /* ─── Error ─── */
+    .error{
+      display:none;padding:14px;border-radius:16px;margin-bottom:16px;
+      background:rgba(180,77,94,0.08);border:1px solid rgba(180,77,94,0.18);
+      color:var(--danger);font-size:0.92rem;text-align:center;
+    }
+
+    /* ─── Result Card ─── */
+    .result-card{
+      padding:28px;
+      background:rgba(255,255,255,0.68);
+      backdrop-filter:blur(20px);
+      border:1px solid rgba(255,255,255,0.80);
+      border-radius:24px;
+      box-shadow:0 8px 32px rgba(180,90,130,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+      animation:fadeUp .5s ease;
+    }
+    @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+    .score-section{
+      display:flex;flex-direction:column;align-items:center;gap:24px;
+      margin-bottom:28px;
+    }
+    .score-ring-wrap{position:relative}
+    .score-ring{width:160px;height:160px;transform:rotate(-90deg)}
+    .ring-bg{fill:none;stroke:rgba(232,224,240,0.35);stroke-width:14}
+    .ring-bar{
+      fill:none;stroke-width:14;stroke-linecap:round;
+      stroke-dasharray:344;stroke-dashoffset:344;
+      stroke:url(#ringGrad);
+      filter:drop-shadow(0 2px 6px rgba(212,100,122,0.2));
+      transition:stroke-dashoffset 1.2s cubic-bezier(0.23,1,0.32,1);
+    }
+    .score-center{
+      position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      font-family:var(--serif);
+    }
+    .score-center .num{font-size:2.4rem;line-height:1;color:var(--ink)}
+    .score-center .sub{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--rose);margin-top:4px}
+
+    .metrics{display:grid;grid-template-columns:repeat(4, 1fr);gap:12px;width:100%}
+    .metric{
+      padding:16px;border-radius:18px;
+      background:rgba(255,255,255,0.50);
+      backdrop-filter:blur(12px);
+      border:1px solid rgba(255,255,255,0.70);
+      box-shadow:0 3px 12px rgba(180,90,130,0.04),inset 0 1px 0 rgba(255,255,255,0.8);
+      text-align:center;
+    }
+    .metric .name{display:block;font-family:var(--mono);font-size:0.65rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+    .metric .val{display:block;font-family:var(--serif);font-size:1.2rem;color:var(--ink);margin-bottom:8px}
+    .track{height:6px;border-radius:999px;background:rgba(232,224,240,0.30);overflow:hidden}
+    .fill{height:100%;border-radius:999px;width:0;transition:width 1.2s cubic-bezier(0.23,1,0.32,1)}
+    .fill.green{background:linear-gradient(90deg,#4E8C72,#6AB092)}
+    .fill.gold{background:linear-gradient(90deg,#C28A3B,#D4A85A)}
+    .fill.red{background:linear-gradient(90deg,#B44D5E,#D46A7A)}
+
+    .remaster-box{
+      display:none;flex-direction:column;gap:14px;align-items:center;text-align:center;
+      padding:24px;border-radius:18px;margin-top:24px;
+      background:linear-gradient(135deg,rgba(220,245,235,0.4),rgba(200,235,220,0.25));
+      border:1px solid rgba(78,140,114,0.20);
+      animation:fadeUp .35s ease;
+    }
+
+    /* ─── Batch ─── */
+    .batch-card{
+      padding:28px;
+      background:rgba(255,255,255,0.68);
+      backdrop-filter:blur(20px);
+      border:1px solid rgba(255,255,255,0.80);
+      border-radius:24px;
+      box-shadow:0 8px 32px rgba(180,90,130,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+    }
+    .table-wrap{
+      overflow:auto;max-height:500px;border-radius:18px;
+      border:1px solid rgba(255,255,255,0.60);
+      background:rgba(255,255,255,0.40);
+      margin-top:20px;
+    }
+    .table-wrap thead{position:sticky;top:0;z-index:2}
+    table{width:100%;border-collapse:separate;border-spacing:0;font-size:0.92rem}
+    thead{background:rgba(248,240,252,0.60)}
+    th{text-align:left;padding:14px 16px;font-family:var(--mono);font-size:0.72rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--rose)}
+    td{padding:14px 16px;border-top:1px solid rgba(232,224,240,0.25)}
+    tbody tr{background:rgba(255,255,255,0.20);transition:background .2s}
+    tbody tr:hover{background:rgba(255,220,230,0.20)}
+    .status{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:6px 12px;border-radius:999px;font-family:var(--mono);font-size:0.72rem;letter-spacing:0.04em;text-transform:uppercase;font-weight:500;
+    }
+    .status.ok{background:rgba(78,140,114,0.12);color:var(--ok)}
+    .status.fail{background:rgba(180,77,94,0.12);color:var(--danger)}
+    .status.wait{background:rgba(162,133,214,0.12);color:var(--lilac)}
+
+    .footer{
+      margin-top:20px;padding-top:20px;
+      border-top:1px solid rgba(255,255,255,0.4);
+      text-align:center;
+    }
+    .footer-note{
+      font-family:var(--mono);font-size:0.72rem;letter-spacing:0.06em;text-transform:uppercase;
+      color:var(--muted);
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width:920px){
+      .metrics{grid-template-columns:1fr 1fr}
+    }
+    @media (max-width:620px){
+      .app-wrapper{padding:24px 16px 60px}
+      .main-app-card, .result-card, .batch-card{padding:24px 20px}
+      .metrics{grid-template-columns:1fr}
+      .mode-pills{flex-direction:column;align-items:stretch}
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-wrapper">
+  <!-- Brand Header -->
+  <header class="brand-header">
+    <div class="capsule"><span class="dot dot-rose"></span> music + ai tools</div>
+    <h1>ai music <span class="italic">detector</span> & remaster</h1>
+    <p class="brand-sub small">a tiny, opinionated tool for checking whether a track feels ai-made, then smoothing it into something more natural for release.</p>
+  </header>
+
+  <!-- Main Interactive Card -->
+  <main class="main-app-card" id="app-card">
+    <div class="section-label">start here</div>
+
+    <div class="mode-pills">
+      <button class="pill active" id="mode-single">single track</button>
+      <button class="pill" id="mode-folder">folder batch</button>
+    </div>
+
+    <div id="error-banner" class="error"></div>
+
+    <!-- Single File Upload -->
+    <div id="upload-zone" class="drop">
+      <div class="head">
+        <div class="icon-btn accent-rose">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        </div>
+        <div>
+          <div><strong>drop your track here</strong></div>
+          <div class="small">or click to browse files</div>
+        </div>
+      </div>
+      <div class="meta">mp3, wav, flac, ogg, m4a - max 50mb</div>
+      <input type="file" id="file-input" accept=".mp3,.wav,.flac,.ogg,.m4a">
+    </div>
+
+    <!-- Folder Batch Input -->
+    <div id="folder-zone" class="folder">
+      <div class="head">
+        <div class="icon-btn accent-lilac" style="width:48px;height:48px;flex-shrink:0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+        </div>
+        <div>
+          <div style="font-family:var(--serif);font-size:1.35rem;line-height:1">batch a whole folder</div>
+          <div class="small" style="margin-top:2px">paste the absolute path below</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:stretch">
+        <input type="text" id="folder-input" class="input" placeholder="D:\music\ai_songs" style="flex:1">
+        <button class="btn secondary" id="btn-browse-folder" style="padding:14px 18px;flex-shrink:0;gap:8px" title="Browse folder">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+          browse
+        </button>
+      </div>
+      <input type="text" id="folder-ref-display" class="input" placeholder="reference track (optional) — click to browse" readonly style="cursor:pointer;color:var(--ink-soft);font-size:0.88rem" id="folder-ref-display">
+      <input type="file" id="ref-input-batch" accept=".mp3,.wav,.flac" style="display:none">
+      <div class="actions folder-actions">
+        <select id="intensity-mode" class="sel">
+          <option value="quality">quality mode</option>
+          <option value="aggressive" selected>aggressive mode</option>
+        </select>
+        <button class="btn" id="btn-batch-start">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          remaster folder
+        </button>
+      </div>
+    </div>
+
+    <!-- Loader State -->
+    <div id="loader" class="loader">
+      <h3 id="loader-text">analyzing fingerprints...</h3>
+      <p class="small">this usually takes a few seconds for single files, longer for batches.</p>
+      <div class="bar"><div class="fill"></div></div>
+    </div>
+
+    <!-- Single Results State -->
+    <div id="results" class="result-card" style="display:none">
+      <div class="score-section">
+        <div class="score-top" style="width:100%;display:flex;justify-content:space-between;align-items:center">
+           <h2 id="result-filename" style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">song.mp3</h2>
+           <span class="badge" id="verdict-badge">unknown</span>
+        </div>
+        
+        <div class="score-ring-wrap">
+          <svg class="score-ring" viewBox="0 0 160 160">
+            <defs>
+              <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#D4647A"/>
+                <stop offset="50%" stop-color="#B86DC8"/>
+                <stop offset="100%" stop-color="#A285D6"/>
+              </linearGradient>
+            </defs>
+            <circle class="ring-bg" cx="80" cy="80" r="55"/>
+            <circle class="ring-bar" id="ring-bar" cx="80" cy="80" r="55"/>
+          </svg>
+          <div class="score-center">
+            <div class="num" id="score-pct">0%</div>
+            <div class="sub">ai match</div>
+          </div>
+        </div>
+        
+        <div class="small" id="result-duration" style="margin-top:-8px">3:42 - 44.1kHz - stereo</div>
+
+        <div class="metrics">
+          <div class="metric">
+            <span class="name">spectral</span>
+            <span class="val" id="score-spectral">0%</span>
+            <div class="track"><div class="fill" id="bar-spectral"></div></div>
+          </div>
+          <div class="metric">
+            <span class="name">timing</span>
+            <span class="val" id="score-timing">0%</span>
+            <div class="track"><div class="fill" id="bar-timing"></div></div>
+          </div>
+          <div class="metric">
+            <span class="name">phase</span>
+            <span class="val" id="score-phase">0%</span>
+            <div class="track"><div class="fill" id="bar-phase"></div></div>
+          </div>
+          <div class="metric">
+            <span class="name">noise</span>
+            <span class="val" id="score-noise_floor">0%</span>
+            <div class="track"><div class="fill" id="bar-noise_floor"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions" style="justify-content:center;gap:12px">
+        <select id="intensity-mode-single" class="sel">
+          <option value="quality">quality mode</option>
+          <option value="aggressive" selected>aggressive mode</option>
+        </select>
+        <button class="btn secondary" id="btn-reset">analyze another</button>
+        <button class="btn secondary" id="btn-ref-single" title="Upload a human reference track to match EQ + dynamics">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1.5"/></svg>
+          <span id="ref-label-single">reference (optional)</span>
+        </button>
+        <input type="file" id="ref-input-single" accept=".mp3,.wav,.flac" style="display:none">
+        <button class="btn" id="btn-remaster">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          remaster
+        </button>
+      </div>
+
+      <div id="remaster-box" class="remaster-box">
+        <h3>remaster complete</h3>
+        <p class="small" id="remaster-stats">ai score reduced from 100% to 0%</p>
+        <a id="btn-download" href="#" target="_blank" class="btn" style="text-decoration:none;background:linear-gradient(135deg,#4E8C72,#6AB092)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          download remastered file
+        </a>
+      </div>
+    </div>
+
+    <!-- Batch Results State -->
+    <div id="batch-results" class="batch-card" style="display:none">
+      <div class="batch-head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div>
+          <h2>batch results</h2>
+          <div class="small" id="batch-summary">0 / 0 processed</div>
+        </div>
+        <div class="capsule" style="margin:0"><span class="dot dot-blue"></span> sequential mode</div>
+      </div>
+      
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>track</th><th>status</th><th>detail</th><th>ai detect</th></tr></thead>
+          <tbody id="batch-tbody"></tbody>
+        </table>
+      </div>
+      
+      <div class="small" id="batch-notes" style="text-align:center;margin-top:16px"></div>
+      <div style="display:flex;justify-content:center;margin-top:16px">
+        <button class="btn secondary" id="btn-batch-reset">remaster another folder</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Info Cards -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <div class="glass" style="padding:24px">
+      <div class="section-label" style="justify-content:flex-start">how the score works</div>
+      <p class="small">the detector returns a combined score mapped so that <span class="mono" style="color:var(--ok)">0%</span> = likely human and <span class="mono" style="color:var(--danger)">100%</span> = likely ai. that scale stays consistent across single-file and batch flows.</p>
+    </div>
+    <div class="glass" style="padding:24px">
+      <div class="section-label" style="justify-content:flex-start">tips</div>
+      <p class="small">if a track scores high before remaster but still feels fine to you, it may just have very clean editing or heavy processing. use the score as a second opinion, not a moral verdict.</p>
+      <p class="small" style="margin-top:8px"><span class="mono">aggressive mode</span> is better for stubborn tracks.</p>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-note">made for private release prep</div>
+  </footer>
+
+  <!-- CLI Log Pane (collapsible) -->
+  <div class="batch-card log-card" id="log-card">
+    <div id="log-toggle" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer">
+      <div class="section-label" style="justify-content:flex-start;margin:0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        cli log
+      </div>
+      <div class="small" style="font-family:var(--mono);font-size:0.7rem;letter-spacing:0.05em;color:var(--muted)">
+        <span id="log-count">0</span> lines
+      </div>
+    </div>
+    <pre id="log-output" class="log-output" style="display:none;margin-top:14px;padding:16px;border-radius:14px;background:rgba(15,11,18,0.75);color:#E0DEE4;font-family:var(--mono);font-size:0.78rem;line-height:1.6;overflow:auto;max-height:400px;white-space:pre-wrap;word-break:break-all">connecting...</pre>
+  </div>
+</div>
+
+<script>
+const ICO_OK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>';
+const ICO_FAIL = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+const ICO_WAIT = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+const ICO_GEAR = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
+
+const uploadZone = document.getElementById('upload-zone');
+const fileInput = document.getElementById('file-input');
+const loader = document.getElementById('loader');
+const loaderText = document.getElementById('loader-text');
+const results = document.getElementById('results');
+const errorBanner = document.getElementById('error-banner');
+const remasterBox = document.getElementById('remaster-box');
+const btnRemaster = document.getElementById('btn-remaster');
+let currentFile = null, currentScore = null, singleRefFile = null;
+
+function getIntensity(mode){
+  if(mode === 'single') return document.getElementById('intensity-mode-single').value;
+  return document.getElementById('intensity-mode').value;
+}
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.style.borderColor = 'var(--rose)'; });
+uploadZone.addEventListener('dragleave', () => { uploadZone.style.borderColor = ''; });
+uploadZone.addEventListener('drop', (e) => { e.preventDefault(); uploadZone.style.borderColor = ''; if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleFile(e.target.files[0]); });
+document.getElementById('btn-reset').addEventListener('click', resetUI);
+
+// Optional human reference track — single mode
+const refInputSingle = document.getElementById('ref-input-single');
+document.getElementById('btn-ref-single').addEventListener('click', function() { refInputSingle.click(); });
+refInputSingle.addEventListener('change', function(e) {
+  singleRefFile = e.target.files.length ? e.target.files[0] : null;
+  document.getElementById('ref-label-single').innerText = singleRefFile ? singleRefFile.name : 'reference (optional)';
+});
+
+// Optional human reference track — batch mode
+const refInputBatch = document.getElementById('ref-input-batch');
+const folderRefDisplay = document.getElementById('folder-ref-display');
+folderRefDisplay.addEventListener('click', function() { refInputBatch.click(); });
+refInputBatch.addEventListener('change', function(e) {
+  folderRefDisplay.value = e.target.files.length ? e.target.files[0].name : '';
+});
+
+function handleFile(file) {
+  currentFile = file;
+  errorBanner.style.display = 'none';
+  uploadZone.style.display = 'none';
+  loader.style.display = 'flex';
+  loaderText.innerText = 'analyzing spectral & temporal fingerprints...';
+  const fd = new FormData();
+  fd.append('file', file);
+  fetch('/api/detect', { method: 'POST', body: fd })
+    .then(r => r.ok ? r.json() : r.json().then(err => { throw new Error(err.error || 'Server error'); }))
+    .then(d => { loader.style.display = 'none'; showResults(file.name, d); })
+    .catch(err => { loader.style.display = 'none'; uploadZone.style.display = ''; errorBanner.innerText = err.message; errorBanner.style.display = 'block'; });
+}
+
+function showResults(filename, data) {
+  currentScore = data.percentage;
+  results.style.display = '';
+  document.getElementById('result-filename').innerText = filename;
+  document.getElementById('result-filename').title = filename;
+  const dur = data.audio_info.duration;
+  const m = Math.floor(dur / 60);
+  const s = String(Math.floor(dur % 60)).padStart(2, '0');
+  const sr = data.audio_info.sample_rate ? (data.audio_info.sample_rate / 1000) + 'kHz' : '?';
+  const ch = data.audio_info.channels === 1 ? 'mono' : data.audio_info.channels === 2 ? 'stereo' : data.audio_info.channels + ' ch';
+  document.getElementById('result-duration').innerText = m + ':' + s + ' - ' + sr + ' - ' + ch + ' - ' + (data.audio_info.format || '?');
+  const bd = document.getElementById('verdict-badge');
+  bd.className = 'badge';
+  const v = data.verdict.toLowerCase().replace('_', ' ');
+  bd.innerText = v;
+  bd.style.border = '1px solid transparent';
+  bd.style.padding = '6px 14px';
+  bd.style.borderRadius = '999px';
+  bd.style.fontFamily = 'var(--mono)';
+  bd.style.fontSize = '0.76rem';
+  bd.style.letterSpacing = '0.06em';
+  bd.style.textTransform = 'uppercase';
+  if (data.verdict.includes('HUMAN')) { bd.style.background = 'rgba(78,140,114,0.12)'; bd.style.color = 'var(--ok)'; bd.style.borderColor = 'rgba(78,140,114,0.25)'; }
+  else if (data.verdict.includes('AI')) { bd.style.background = 'rgba(180,77,94,0.12)'; bd.style.color = 'var(--danger)'; bd.style.borderColor = 'rgba(180,77,94,0.25)'; }
+  else { bd.style.background = 'rgba(194,138,59,0.12)'; bd.style.color = 'var(--warning)'; bd.style.borderColor = 'rgba(194,138,59,0.25)'; }
+  
+  document.getElementById('score-pct').innerText = data.percentage + '%';
+  const rb = document.getElementById('ring-bar');
+  const circ = 344;
+  setTimeout(function(){ rb.style.strokeDashoffset = circ - (data.score * circ); }, 100);
+  ['spectral','timing','phase','noise_floor'].forEach(function(v) {
+    const val = data.vector_scores[v] || 0;
+    document.getElementById('score-' + v).innerText = (val * 100).toFixed(1) + '%';
+    const b = document.getElementById('bar-' + v);
+    b.className = 'fill';
+    if (val >= 0.65) b.classList.add('red');
+    else if (val >= 0.35) b.classList.add('gold');
+    else b.classList.add('green');
+    setTimeout(function(){ b.style.width = (val * 100) + '%'; }, 200);
+  });
+}
+
+function resetUI() {
+  results.style.display = 'none';
+  uploadZone.style.display = '';
+  fileInput.value = '';
+  document.getElementById('ring-bar').style.strokeDashoffset = 344;
+  ['spectral','timing','phase','noise_floor'].forEach(function(v) { document.getElementById('bar-' + v).style.width = '0%'; });
+  remasterBox.style.display = 'none';
+  btnRemaster.classList.remove('hidden');
+  singleRefFile = null;
+  refInputSingle.value = '';
+  document.getElementById('ref-label-single').innerText = 'reference (optional)';
+}
+
+btnRemaster.addEventListener('click', function() {
+  if (!currentFile) return;
+  errorBanner.style.display = 'none';
+  results.style.display = 'none';
+  loader.style.display = 'flex';
+  loaderText.innerText = 'remastering with demucs + dsp...';
+  const fd = new FormData();
+  fd.append('file', currentFile);
+  fd.append('intensity', getIntensity('single'));
+  if (singleRefFile) fd.append('reference', singleRefFile);
+  fetch('/api/remaster', { method: 'POST', body: fd })
+    .then(function(r) { return r.ok ? r.json() : r.json().then(function(err) { throw new Error(err.error || 'Server error'); }); })
+    .then(function(data) {
+      loader.style.display = 'none';
+      results.style.display = '';
+      remasterBox.style.display = 'flex';
+      btnRemaster.classList.add('hidden');
+      const fn = data.filepath.split('\\').pop().split('/').pop();
+      document.getElementById('btn-download').href = '/api/download/' + fn;
+      const before = Number(data.ai_score_before != null ? data.ai_score_before : (currentScore || 0));
+      const after = Number(data.ai_score_after || 0);
+      document.getElementById('remaster-stats').innerText = 'AI Score: ' + before.toFixed(2) + '% -> ' + after.toFixed(2) + '% (' + Math.max(0, before - after).toFixed(2) + '% reduced)';
+      document.getElementById('score-pct').innerText = after.toFixed(2) + '%';
+      const sb = document.getElementById('ring-bar');
+      const c = 344;
+      sb.style.strokeDashoffset = c - ((after / 100) * c);
+      const bd = document.getElementById('verdict-badge');
+      const va = (data.verdict_after || 'UNKNOWN').toString();
+      bd.innerText = va.toLowerCase().replace('_', ' ');
+      bd.style.border = '1px solid transparent';
+      if (va.includes('HUMAN')) { bd.style.background = 'rgba(78,140,114,0.12)'; bd.style.color = 'var(--ok)'; bd.style.borderColor = 'rgba(78,140,114,0.25)'; }
+      else if (va.includes('AI')) { bd.style.background = 'rgba(180,77,94,0.12)'; bd.style.color = 'var(--danger)'; bd.style.borderColor = 'rgba(180,77,94,0.25)'; }
+      else { bd.style.background = 'rgba(194,138,59,0.12)'; bd.style.color = 'var(--warning)'; bd.style.borderColor = 'rgba(194,138,59,0.25)'; }
+      const av = data.vector_scores_after || {};
+      ['spectral','timing','phase','noise_floor'].forEach(function(v) {
+        const val = av[v] || 0;
+        document.getElementById('score-' + v).innerText = (val * 100).toFixed(1) + '%';
+        document.getElementById('bar-' + v).style.width = (val * 100) + '%';
+      });
+    })
+    .catch(function(err) { loader.style.display = 'none'; results.style.display = ''; errorBanner.innerText = err.message; errorBanner.style.display = 'block'; });
+});
+
+// mode toggle
+var btnS = document.getElementById('mode-single');
+var btnF = document.getElementById('mode-folder');
+var folderZ = document.getElementById('folder-zone');
+var batchR = document.getElementById('batch-results');
+btnS.addEventListener('click', function() {
+  btnS.classList.add('active'); btnF.classList.remove('active');
+  uploadZone.style.display = ''; folderZ.style.display = 'none';
+  batchR.style.display = 'none'; results.style.display = 'none';
+  loader.style.display = 'none'; errorBanner.style.display = 'none';
+});
+btnF.addEventListener('click', function() {
+  btnS.classList.remove('active'); btnF.classList.add('active');
+  uploadZone.style.display = 'none'; folderZ.style.display = 'flex';
+  results.style.display = 'none'; batchR.style.display = 'none';
+  loader.style.display = 'none'; errorBanner.style.display = 'none';
+});
+document.getElementById('btn-batch-reset').addEventListener('click', function() {
+  batchR.style.display = 'none'; folderZ.style.display = 'flex';
+  document.getElementById('folder-input').value = '';
+  folderRefDisplay.value = '';
+  refInputBatch.value = '';
+});
+
+// Native folder browser via pywebview JS bridge
+document.getElementById('btn-browse-folder').addEventListener('click', async function() {
+  var btn = this;
+  var original = btn.innerHTML;
+  try {
+    btn.disabled = true;
+    btn.innerText = 'opening...';
+    if (!window.pywebview || !window.pywebview.api) throw new Error('folder browser only works inside the desktop app');
+    var selected = await window.pywebview.api.browse_folder();
+    if (selected) {
+      document.getElementById('folder-input').value = selected;
+      errorBanner.style.display = 'none';
+    }
+  } catch (err) {
+    errorBanner.innerText = err.message || 'could not open folder browser';
+    errorBanner.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+});
+
+// batch SSE
+document.getElementById('btn-batch-start').addEventListener('click', async function() {
+  var fp = document.getElementById('folder-input').value.trim();
+  if (!fp) { errorBanner.innerText = 'paste a folder path first'; errorBanner.style.display = 'block'; return; }
+  errorBanner.style.display = 'none'; folderZ.style.display = 'none'; batchR.style.display = '';
+  var tbody = document.getElementById('batch-tbody'); tbody.innerHTML = '';
+  document.getElementById('batch-summary').innerText = 'scanning folder...';
+  document.getElementById('batch-notes').innerText = '';
+  var fd = new FormData();
+  fd.append('folder_path', fp);
+  fd.append('intensity', getIntensity('batch'));
+  if (refInputBatch.files.length > 0) fd.append('reference', refInputBatch.files[0]);
+  try {
+    var res = await fetch('/api/remaster-batch-stream', { method: 'POST', body: fd });
+    if (!res.ok) { var e = await res.json(); throw new Error(e.error || 'Server error'); }
+    var reader = res.body.getReader();
+    var decoder = new TextDecoder();
+    var buf = '', total = 0, ok = 0, fail = 0;
+    while (true) {
+      var result = await reader.read();
+      if (result.done) break;
+      buf += decoder.decode(result.value, { stream: true });
+      var lines = buf.split('\n'); buf = lines.pop();
+      for (var li = 0; li < lines.length; li++) { if (lines[li].startsWith('data: ')) { try { evt(JSON.parse(lines[li].slice(6).trim())); } catch(e){} } }
+    }
+    if (buf.startsWith('data: ')) { try { evt(JSON.parse(buf.slice(6).trim())); } catch(e){} }
+
+    function evt(d) {
+      if (d.type === 'scan') {
+        total = d.total;
+        document.getElementById('batch-summary').innerText = '0 / ' + total + ' processed';
+        tbody.innerHTML = '';
+        d.files.forEach(function(fn, i) {
+          var tr = document.createElement('tr'); tr.id = 'br-' + (i + 1);
+          tr.innerHTML = '<td>' + fn + '</td><td><span class="status wait">' + ICO_WAIT + ' queued</span></td><td class="small">waiting</td><td class="small">-</td>';
+          tbody.appendChild(tr);
+        });
+      } else if (d.type === 'file_start') {
+        var tr = document.getElementById('br-' + d.index); if (!tr) return;
+        tr.children[1].innerHTML = '<span class="status wait">' + ICO_GEAR + ' running</span>';
+        tr.children[2].innerText = 'separating + remastering';
+        tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else if (d.type === 'step') {
+        var tr = document.getElementById('br-' + d.index); if (!tr) return;
+        tr.children[2].innerText = d.step || 'working';
+      } else if (d.type === 'file_done') {
+        ok++; var tr = document.getElementById('br-' + d.index); if (!tr) return;
+        tr.children[1].innerHTML = '<span class="status ok">' + ICO_OK + ' done</span>';
+        tr.children[2].innerText = d.output_path ? 'saved' : 'finished';
+        var before = Number(d.ai_score_before || 0).toFixed(1);
+        var after = Number(d.ai_score_after || 0).toFixed(1);
+        tr.children[3].innerHTML = '<span class="mono">' + before + '%</span> <span class="muted"> -> </span> <span class="mono" style="color:var(--ok)">' + after + '%</span>';
+        document.getElementById('batch-summary').innerText = (ok + fail) + ' / ' + total + ' processed';
+      } else if (d.type === 'file_failed') {
+        fail++; var tr = document.getElementById('br-' + d.index); if (!tr) return;
+        tr.children[1].innerHTML = '<span class="status fail">' + ICO_FAIL + ' failed</span>';
+        tr.children[2].innerText = d.error || 'error'; tr.children[3].innerText = '-';
+        document.getElementById('batch-summary').innerText = (ok + fail) + ' / ' + total + ' processed';
+      } else if (d.type === 'done') {
+        document.getElementById('batch-notes').innerText = 'completed: ' + d.completed + ' - failed: ' + d.failed;
+      } else if (d.type === 'error') { throw new Error(d.error || 'stream error'); }
+    }
+  } catch (err) {
+    errorBanner.innerText = err.message; errorBanner.style.display = 'block';
+    batchR.style.display = 'none'; folderZ.style.display = 'flex';
+  }
+});
+
+// --- CLI Log Pane ---
+var logOutput = document.getElementById('log-output');
+var logCard = document.getElementById('log-card');
+var logCount = document.getElementById('log-count');
+var logExpanded = false;
+var logLines = 0;
+var logAutoScroll = true;
+
+// Toggle expand/collapse
+document.getElementById('log-toggle').addEventListener('click', function() {
+  logExpanded = !logExpanded;
+  logOutput.style.display = logExpanded ? '' : 'none';
+  if (logExpanded) {
+    logOutput.scrollTop = logOutput.scrollHeight;
+    logAutoScroll = true;
+  }
+});
+
+// Scroll detection: pause auto-scroll when user scrolls up
+logOutput.addEventListener('scroll', function() {
+  var atBottom = logOutput.scrollTop + logOutput.clientHeight >= logOutput.scrollHeight - 12;
+  logAutoScroll = atBottom;
+});
+
+// Connect to /api/logs SSE
+var logES = new EventSource('/api/logs');
+logOutput.textContent = '';
+logES.onmessage = function(e) {
+  var text;
+  try { text = JSON.parse(e.data); } catch(_) { text = e.data; }
+  if (!text) return;
+  logLines++;
+  logCount.textContent = logLines;
+  var wasEmpty = logOutput.textContent === '';
+  logOutput.textContent += text;
+  // Trim front to keep DOM lean (keep last 2000 chars)
+  if (logOutput.textContent.length > 20000) {
+    logOutput.textContent = '...' + logOutput.textContent.slice(-18000);
+  }
+  if (logAutoScroll) logOutput.scrollTop = logOutput.scrollHeight;
+};
+logES.onerror = function() {
+  logOutput.textContent += '\n[disconnected — reconnecting...]\n';
+};
+</script>
+</body>
+</html>
