@@ -74,13 +74,13 @@ class DesktopApi:
     """Native desktop actions exposed to the web interface."""
 
     def __init__(self) -> None:
-        self.window = None
+        self._window = None
 
     def browse_folder(self) -> str:
         """Open the native folder picker and return the selected path."""
-        if self.window is None:
+        if self._window is None:
             return ""
-        selected = self.window.create_file_dialog(webview.FOLDER_DIALOG)
+        selected = self._window.create_file_dialog(webview.FOLDER_DIALOG)
         return selected[0] if selected else ""
 
 
@@ -123,7 +123,7 @@ if __name__ == "__main__":
         min_size=(900, 600),
         confirm_close=True,
     )
-    api.window = window
+    api._window = window
 
     # Set shutdown_event when pywebview window is closed
     window.events.closed += lambda: shutdown_event.set()
